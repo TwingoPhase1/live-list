@@ -205,6 +205,7 @@ app.get('/api/manifest/:id', (req, res) => {
         "short_name": title.length > 12 ? title.substring(0, 12) + "..." : title,
         "description": `List: ${title}`,
         "start_url": `/${listId}`,
+        "scope": `/${listId}`, // RESTRICT SCOPE: Only capture this specific URL
         "id": `/${listId}`, // Unique ID for PWA differentiation
         "display": "standalone",
         "background_color": "#f4f4f5",
