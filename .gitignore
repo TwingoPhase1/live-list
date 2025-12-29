@@ -1,6 +1,16 @@
+# Dependencies
 node_modules/
-data/
-users.json
+package-lock.json
+
+# Environment
 .env
-.DS_Store
+
+# Data Persistence (Local DB)
+data/*.json
+data/*.yjs
 lists-index.json
+users.json
+
+# OS Misc
+.DS_Store
+Thumbs.db

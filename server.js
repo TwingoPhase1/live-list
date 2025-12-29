@@ -1,17 +1,34 @@
 const express = require('express');
 const http = require('http');
-const { Server } = require('socket.io');
+
 const fs = require('fs');
 const path = require('path');
 const { nanoid } = require('nanoid');
-const session = require('express-session');
-const cookieParser = require('cookie-parser');
-const bcrypt = require('bcryptjs');
+const WebSocket = require('ws');
+/*
+  Try to require y-websocket utils. 
+  Note: If y-websocket is ESM only in newer versions, this might need dynamic import or a workaround. 
+  For standard usage, we'll try standard require. If it fails, we might need a fallback.
+  However, since we are in a CommonJS file, we hope for the best.
+*/
+const Y = require('yjs');
+const syncProtocol = require('y-protocols/sync');
+const awarenessProtocol = require('y-protocols/awareness');
+const encoding = require('lib0/encoding');
+const decoding = require('lib0/decoding');
+const map = require('lib0/map');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, {
-    cors: { origin: "*", methods: ["GET", "POST"] }
+
+const wss = new WebSocket.Server({ noServer: true });
+
+server.on('upgrade', (request, socket, head) => {
+    if (request.url.startsWith('/yjs')) {
+        wss.handleUpgrade(request, socket, head, (ws) => {
+            wss.emit('connection', ws, request);
+        });
+    }
 });
 
 const DATA_DIR = path.join(__dirname, 'data');
@@ -21,41 +38,35 @@ const LISTS_INDEX_FILE = path.join(__dirname, 'lists-index.json');
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR);
 
 // --- Index Management ---
-// Optimization: Keep a persistent index of list metadata to avoid reading all files on dashboard load.
 let listsIndex = [];
-
-// Initialize Index
-// Initialize Index (Smart Sync)
 function loadOrRebuildIndex() {
     let indexMap = new Map();
-
-    // 1. Try to load existing index
     if (fs.existsSync(LISTS_INDEX_FILE)) {
         try {
             const rawIndex = JSON.parse(fs.readFileSync(LISTS_INDEX_FILE, 'utf8'));
             rawIndex.forEach(item => indexMap.set(item.id, item));
-        } catch (e) {
-            console.error("[INDEX] Corrupt index, starting fresh.");
-        }
+        } catch (e) { }
     }
-
-    // 2. Scan Disk for truth
     const files = fs.readdirSync(DATA_DIR);
     const diskIds = new Set();
     let changed = false;
-
-    // 3. Add/Update from Disk
     for (const f of files) {
+        if (f.endsWith('.yjs')) {
+            const id = f.replace('.yjs', '');
+            diskIds.add(id);
+            // YJS binary files are opaque, we rely on index for metadata. 
+            continue;
+        }
+
         if (!f.endsWith('.json')) continue;
+
+
         const id = f.replace('.json', '');
         diskIds.add(id);
-
-        // If not in index, read it (Discovery)
         if (!indexMap.has(id)) {
             try {
                 const filePath = path.join(DATA_DIR, f);
                 const content = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-
                 indexMap.set(id, {
                     id: content.id || id,
                     title: content.title || id,
@@ -64,59 +75,200 @@ function loadOrRebuildIndex() {
                     public: content.public !== false,
                     size: fs.statSync(filePath).size
                 });
-                console.log(`[INDEX] Discovered new/restored list: ${id}`);
                 changed = true;
-            } catch (e) {
-                console.error(`[INDEX] Skipping corrupt file ${f}`);
-            }
+                console.log(`[INDEX] Discovered: ${id}`);
+            } catch (e) { }
         }
     }
-
-    // 4. Remove ghosts (In index but not on disk)
     for (const id of indexMap.keys()) {
         if (!diskIds.has(id)) {
-            console.log(`[INDEX] Removing ghost entry: ${id}`);
             indexMap.delete(id);
             changed = true;
         }
     }
-
-    // 5. Finalize
     listsIndex = Array.from(indexMap.values());
-    if (changed) {
-        console.log(`[INDEX] Sync complete. Saving ${listsIndex.length} lists.`);
-        saveIndex();
-    } else {
-        console.log(`[INDEX] Loaded ${listsIndex.length} lists. Index properly synced.`);
-    }
+    if (changed) saveIndex();
+    else console.log(`[INDEX] Loaded ${listsIndex.length} lists.`);
 }
-
-// rebuildIndex is no longer needed separate, logic merged above.
-// function rebuildIndex() { ... } DELETED
 
 function saveIndex() {
     fs.promises.writeFile(LISTS_INDEX_FILE, JSON.stringify(listsIndex)).catch(e => console.error("Index save failed", e));
 }
-
-// Helper to update index entry
 function updateIndex(id, metadata) {
     const idx = listsIndex.findIndex(i => i.id === id);
-    if (idx !== -1) {
-        // Merge updates
-        listsIndex[idx] = { ...listsIndex[idx], ...metadata };
-    } else {
-        // New entry
-        listsIndex.push(metadata);
-    }
+    if (idx !== -1) listsIndex[idx] = { ...listsIndex[idx], ...metadata };
+    else listsIndex.push(metadata);
     saveIndex();
 }
-
 function removeFromIndex(id) {
     listsIndex = listsIndex.filter(i => i.id !== id);
     saveIndex();
 }
-
 loadOrRebuildIndex();
+
+// --- Yjs Logic ---
+const docs = new Map();
+// Helpers
+const loadDoc = async (docname) => {
+    const filePath = path.join(DATA_DIR, `${docname}.yjs`);
+    if (fs.existsSync(filePath)) {
+        try {
+            return new Uint8Array(await fs.promises.readFile(filePath));
+        } catch (e) { console.error("Load failed", e); }
+    }
+    return null;
+};
+const saveDoc = async (docname, doc) => {
+    const filePath = path.join(DATA_DIR, `${docname}.yjs`);
+    const update = Y.encodeStateAsUpdate(doc);
+    await fs.promises.writeFile(filePath, Buffer.from(update));
+    // Update Index for Dashboard
+    updateIndex(docname, {
+        lastModified: Date.now(),
+        size: update.length
+    });
+};
+const yWriteCache = new Map();
+function scheduleYSave(docName, doc) {
+    if (yWriteCache.has(docName)) clearTimeout(yWriteCache.get(docName));
+    const timer = setTimeout(() => {
+        saveDoc(docName, doc);
+        manageHistory(docName, doc); // Hook for history
+    }, 2000);
+    yWriteCache.set(docName, timer);
+}
+
+// History Management (Optimized)
+const HISTORY_DIR = path.join(DATA_DIR, 'history');
+if (!fs.existsSync(HISTORY_DIR)) fs.mkdirSync(HISTORY_DIR);
+
+async function manageHistory(docName, doc) {
+    const historyPath = path.join(HISTORY_DIR, `${docName}.json`);
+    const currentText = doc.getText('content').toString();
+    const now = Date.now();
+
+    // Load existing metadata or init
+    let history = [];
+    try {
+        if (fs.existsSync(historyPath)) {
+            history = JSON.parse(await fs.promises.readFile(historyPath, 'utf8'));
+        }
+    } catch (e) { }
+
+    // OPTIMIZATION: Strategy
+    // 1. Always save if empty (first save)
+    // 2. Otherwise, debounce:
+    //    - At least 10 minutes between saves OR
+    //    - If content changed by > 20% ? (Simpler: just Time-based for now to avoid CPU diffing)
+
+    const lastEntry = history[history.length - 1];
+    const MIN_INTERVAL = 10 * 60 * 1000; // 10 Minutes
+
+    let shouldSave = false;
+
+    if (!lastEntry) {
+        shouldSave = true;
+    } else {
+        // Time check
+        if (now - lastEntry.timestamp > MIN_INTERVAL) {
+            // Content check: Don't save if identical
+            if (lastEntry.content !== currentText) {
+                shouldSave = true;
+            }
+        }
+    }
+
+    if (shouldSave && currentText.trim().length > 0) {
+        history.push({ timestamp: now, content: currentText });
+        // Cap history size (e.g. 50 entries)
+        if (history.length > 50) history.shift();
+
+        await fs.promises.writeFile(historyPath, JSON.stringify(history));
+        console.log(`[HISTORY] Saved snapshot for ${docName}`);
+    }
+}
+
+const send = (conn, m) => {
+    if (conn.readyState !== WebSocket.OPEN) { conn.close(); return; }
+    try { conn.send(m); } catch (e) { conn.close(); }
+};
+
+const getYDoc = (docname, gc = true) => {
+    return map.setIfUndefined(docs, docname, () => {
+        const doc = new Y.Doc({ gc });
+        doc.loaded = false;
+        doc.conns = new Map();
+        doc.awareness = new awarenessProtocol.Awareness(doc);
+        doc.awareness.setLocalState(null);
+        doc.on('update', (update, origin, doc) => {
+            const encoder = encoding.createEncoder();
+            encoding.writeVarUint(encoder, 0);
+            syncProtocol.writeUpdate(encoder, update);
+            const message = encoding.toUint8Array(encoder);
+            doc.conns.forEach((_, conn) => send(conn, message));
+            if (doc.loaded) scheduleYSave(docname, doc);
+        });
+        loadDoc(docname).then(update => {
+            if (update) Y.applyUpdate(doc, update);
+            doc.loaded = true;
+        });
+        doc.awareness.on('update', ({ added, updated, removed }, origin) => {
+            const changedClients = added.concat(updated).concat(removed);
+            const encoder = encoding.createEncoder();
+            encoding.writeVarUint(encoder, 1);
+            awarenessProtocol.writeAwarenessUpdate(encoder, doc.awareness, changedClients);
+            const buff = encoding.toUint8Array(encoder);
+            doc.conns.forEach((_, conn) => send(conn, buff));
+        });
+        return doc;
+    });
+};
+
+const messageListener = (conn, doc, message) => {
+    try {
+        const encoder = encoding.createEncoder();
+        const decoder = decoding.createDecoder(message);
+        const messageType = decoding.readVarUint(decoder);
+        switch (messageType) {
+            case 0:
+                encoding.writeVarUint(encoder, 0);
+                syncProtocol.readSyncMessage(decoder, encoder, doc, null);
+                if (encoding.length(encoder) > 1) send(conn, encoding.toUint8Array(encoder));
+                break;
+            case 1:
+                awarenessProtocol.applyAwarenessUpdate(doc.awareness, decoding.readVarUint8Array(decoder), conn);
+                break;
+        }
+    } catch (err) { doc.emit('error', [err]); }
+};
+
+wss.on('connection', (conn, req) => {
+    conn.binaryType = 'arraybuffer';
+    try {
+        const docName = req.url.slice(1).split('?')[0].replace('yjs/', '');
+        const doc = getYDoc(docName);
+        doc.conns.set(conn, new Set());
+        conn.on('message', message => messageListener(conn, doc, new Uint8Array(message)));
+        const encoder = encoding.createEncoder();
+        encoding.writeVarUint(encoder, 0);
+        syncProtocol.writeSyncStep1(encoder, doc);
+        send(conn, encoding.toUint8Array(encoder));
+        const awarenessStates = doc.awareness.getStates();
+        if (awarenessStates.size > 0) {
+            const encoder = encoding.createEncoder();
+            encoding.writeVarUint(encoder, 1);
+            awarenessProtocol.writeAwarenessUpdate(encoder, doc.awareness, Array.from(awarenessStates.keys()));
+            send(conn, encoding.toUint8Array(encoder));
+        }
+        conn.on('close', () => {
+            doc.conns.delete(conn);
+            awarenessProtocol.removeAwarenessStates(doc.awareness, [doc.awareness.clientID], null);
+        });
+    } catch (e) { conn.close(); }
+});
+const session = require('express-session');
+const cookieParser = require('cookie-parser');
+const bcrypt = require('bcryptjs');
 
 app.use(express.json());
 app.use(express.static('public'));
@@ -133,9 +285,8 @@ const sessionMiddleware = session({
 
 app.use(sessionMiddleware);
 
-// Share session with Socket.IO
-const wrap = middleware => (socket, next) => middleware(socket.request, {}, next);
-io.use(wrap(sessionMiddleware));
+
+
 
 const log = (msg) => console.log(`[${new Date().toISOString()}] ${msg}`);
 
@@ -158,7 +309,7 @@ app.post('/api/lists/toggle', isAuthenticated, async (req, res) => {
     updateIndex(id, { public: isPublic, lastModified: listData.lastModified });
 
     // Notify room (to update UI)
-    io.to(id).emit('metaUpdate', { public: isPublic });
+    // TODO: Implement via Yjs awareness if needed
 
     res.json({ success: true, public: isPublic });
 });
@@ -222,154 +373,7 @@ app.get('/api/manifest/:id', (req, res) => {
     res.json(manifest);
 });
 
-// ... (Socket Logic) ...
 
-io.on('connection', (socket) => {
-    // ... 
-
-    socket.on('join', (roomId) => {
-        // SECURITY: Verify list exists via centralized helper
-        const listData = getListData(roomId);
-
-        if (!listData) {
-            socket.emit('error', 'List not found');
-            return;
-        }
-
-        const session = socket.request.session;
-        const isAdmin = session && session.user;
-        const isPublic = listData.public !== false;
-
-        if (!isPublic && !isAdmin) {
-            console.log(`[SOCKET DENIED] Private List ${roomId}`);
-            socket.emit('error', 'Access Denied');
-            socket.disconnect();
-            return;
-        }
-
-        socket.join(roomId);
-
-        // Include public status in init
-        // SECURITY: Only send adminTitle if user IS admin
-        const initData = {
-            content: listData.content,
-            lastModified: listData.lastModified,
-            title: listData.title || '',
-            public: isPublic
-        };
-
-        if (isAdmin) {
-            initData.adminTitle = listData.adminTitle || '';
-        }
-
-        socket.emit('init', initData);
-
-        const count = getRoomCount(roomId);
-        io.to(roomId).emit('userCount', count);
-        log(`User joined room ${roomId}. Total: ${count}.`);
-    });
-
-    socket.on('updateTitle', ({ roomId, title }) => {
-        // Security Check
-        let listData = getListData(roomId);
-        if (!listData) return;
-
-        // AUTH CHECK: Must be Admin or List must be Public
-        const session = socket.request.session;
-        const isAdmin = session && session.user;
-        const isPublic = listData.public !== false;
-
-        if (!isPublic && !isAdmin) {
-            console.log(`[WRITE DENIED] User tried to update title of private list ${roomId}`);
-            return;
-        }
-
-        socket.to(roomId).emit('syncTitle', { title });
-
-        listData.title = title;
-        listData.lastModified = Date.now();
-
-        // Broadcast metadata update
-        io.to(roomId).emit('metaUpdate', { lastModified: listData.lastModified });
-
-        // Update Index
-        updateIndex(roomId, { title: title, lastModified: listData.lastModified });
-
-        // Schedule Save
-        scheduleWrite(roomId, listData);
-    });
-
-    socket.on('updateAdminTitle', ({ roomId, adminTitle }) => {
-        // Security Check
-        let listData = getListData(roomId);
-        if (!listData) return;
-
-        // AUTH CHECK: STRICTLY ADMIN ONLY
-        const session = socket.request.session;
-        const isAdmin = session && session.user;
-
-        if (!isAdmin) {
-            console.log(`[WRITE DENIED] Non-admin tried to update Admin Title of ${roomId}`);
-            return;
-        }
-
-        // We do NOT broadcast this to the room because it's private.
-        // But we might want to ack back to the sender? 
-        // For now, client assumes success or we could emit specific ack.
-
-        listData.adminTitle = adminTitle;
-        // Don't change lastModified for this? Or yes? Maybe internal change.
-
-        // Update Index
-        updateIndex(roomId, { adminTitle: adminTitle });
-
-        // Schedule Save
-        scheduleWrite(roomId, listData);
-    });
-
-    socket.on('update', ({ roomId, content }) => {
-        // Security Check
-        let listData = getListData(roomId);
-        if (!listData) return;
-
-        // AUTH CHECK: Must be Admin or List must be Public
-        const session = socket.request.session;
-        const isAdmin = session && session.user;
-        const isPublic = listData.public !== false;
-
-        if (!isPublic && !isAdmin) {
-            console.log(`[WRITE DENIED] User tried to update content of private list ${roomId}`);
-            return;
-        }
-
-        socket.to(roomId).emit('sync', { content });
-
-        listData.history.push({ ts: Date.now(), content: content });
-        if (listData.history.length > 50) listData.history.shift();
-
-        listData.content = content;
-        listData.lastModified = Date.now();
-
-        io.to(roomId).emit('metaUpdate', { lastModified: listData.lastModified });
-
-        // Update Index
-        updateIndex(roomId, { lastModified: listData.lastModified, size: JSON.stringify(listData).length });
-
-        // Schedule Save
-        scheduleWrite(roomId, listData);
-    });
-
-    socket.on('disconnecting', () => {
-        for (const roomId of socket.rooms) {
-            if (roomId !== socket.id) {
-                const count = getRoomCount(roomId) - 1;
-                io.to(roomId).emit('userCount', count);
-            }
-        }
-    });
-
-    // ...
-});
 
 // Auth Middleware
 function isAuthenticated(req, res, next) {
@@ -494,12 +498,15 @@ app.get('/api/lists/:id/history', isAuthenticated, async (req, res) => {
         return res.status(403).json({ error: "Access Denied" });
     }
 
-    const listData = getListData(listId);
-    if (!listData) return res.status(404).json({ error: "List not found" });
-
-    // Reverse history so newest is first
-    const history = (listData.history || []).slice().reverse();
-    res.json(history);
+    const historyPath = path.join(HISTORY_DIR, `${listId}.json`);
+    let history = [];
+    if (fs.existsSync(historyPath)) {
+        try {
+            history = JSON.parse(await fs.promises.readFile(historyPath, 'utf8'));
+        } catch (e) { }
+    }
+    // Reverse for UI (Newest first)
+    res.json(history.slice().reverse());
 });
 
 app.post('/api/lists/delete', isAuthenticated, async (req, res) => {
@@ -542,6 +549,11 @@ app.get('/dashboard', (req, res) => {
 
 // Serve list.html for any other route (Dynamic List ID)
 // MUST BE LAST ROUTE to avoid intercepting /login, /api, etc.
+// Serve list.html for any other route (Dynamic List ID)
+// MUST BE LAST ROUTE to avoid intercepting /login, /api, etc.
+
+
+
 // Serve list.html for any other route (Dynamic List ID)
 // MUST BE LAST ROUTE to avoid intercepting /login, /api, etc.
 app.get('/:id', (req, res) => {
@@ -606,28 +618,7 @@ app.get('/:id', (req, res) => {
     }
 });
 
-// Helper to get room count
-function getRoomCount(roomId) {
-    const room = io.sockets.adapter.rooms.get(roomId);
-    return room ? room.size : 0;
-}
 
-// --- Persistence Layer (Write-Behind Cache) ---
-const writeCache = new Map(); // Stores { roomId, data, timer }
-const WRITE_DELAY = 2000; // 2 seconds debounce
-
-function scheduleWrite(roomId, listData) {
-    if (writeCache.has(roomId)) {
-        clearTimeout(writeCache.get(roomId).timer);
-    }
-
-    const timer = setTimeout(() => {
-        saveToDisk(roomId, listData);
-        writeCache.delete(roomId);
-    }, WRITE_DELAY);
-
-    writeCache.set(roomId, { data: listData, timer });
-}
 
 async function saveToDisk(roomId, listData) {
     const filePath = path.join(DATA_DIR, `${roomId}.json`);
@@ -642,9 +633,8 @@ async function saveToDisk(roomId, listData) {
 // Helper to get data (Cache or Disk)
 // SECURITY: Returns NULL if list does not exist (Strict Mode)
 function getListData(roomId) {
-    if (writeCache.has(roomId)) {
-        return writeCache.get(roomId).data;
-    }
+    // Check disk directly
+
 
     const filePath = path.join(DATA_DIR, `${roomId}.json`);
     if (fs.existsSync(filePath)) {
