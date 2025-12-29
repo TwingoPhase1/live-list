@@ -25,47 +25,74 @@ if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR);
 let listsIndex = [];
 
 // Initialize Index
+// Initialize Index (Smart Sync)
 function loadOrRebuildIndex() {
+    let indexMap = new Map();
+
+    // 1. Try to load existing index
     if (fs.existsSync(LISTS_INDEX_FILE)) {
         try {
-            listsIndex = JSON.parse(fs.readFileSync(LISTS_INDEX_FILE, 'utf8'));
-            console.log(`[INDEX] Loaded ${listsIndex.length} lists from index.`);
+            const rawIndex = JSON.parse(fs.readFileSync(LISTS_INDEX_FILE, 'utf8'));
+            rawIndex.forEach(item => indexMap.set(item.id, item));
         } catch (e) {
-            console.error("[INDEX] Failed to load index, rebuilding...");
-            rebuildIndex();
+            console.error("[INDEX] Corrupt index, starting fresh.");
         }
-    } else {
-        rebuildIndex();
     }
-}
 
-function rebuildIndex() {
-    console.log("[INDEX] Rebuilding index from disk...");
+    // 2. Scan Disk for truth
     const files = fs.readdirSync(DATA_DIR);
-    const newIndex = [];
+    const diskIds = new Set();
+    let changed = false;
 
+    // 3. Add/Update from Disk
     for (const f of files) {
         if (!f.endsWith('.json')) continue;
-        const filePath = path.join(DATA_DIR, f);
-        try {
-            const content = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-            // Validation
-            if (!content.id) continue;
+        const id = f.replace('.json', '');
+        diskIds.add(id);
 
-            newIndex.push({
-                id: content.id,
-                title: content.title || content.id,
-                lastModified: content.lastModified || Date.now(),
-                public: content.public !== false,
-                size: fs.statSync(filePath).size
-            });
-        } catch (e) {
-            console.error(`[INDEX] Skipping corrupt file ${f}`);
+        // If not in index, read it (Discovery)
+        if (!indexMap.has(id)) {
+            try {
+                const filePath = path.join(DATA_DIR, f);
+                const content = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+
+                indexMap.set(id, {
+                    id: content.id || id,
+                    title: content.title || id,
+                    adminTitle: content.adminTitle || null,
+                    lastModified: content.lastModified || Date.now(),
+                    public: content.public !== false,
+                    size: fs.statSync(filePath).size
+                });
+                console.log(`[INDEX] Discovered new/restored list: ${id}`);
+                changed = true;
+            } catch (e) {
+                console.error(`[INDEX] Skipping corrupt file ${f}`);
+            }
         }
     }
-    listsIndex = newIndex;
-    saveIndex();
+
+    // 4. Remove ghosts (In index but not on disk)
+    for (const id of indexMap.keys()) {
+        if (!diskIds.has(id)) {
+            console.log(`[INDEX] Removing ghost entry: ${id}`);
+            indexMap.delete(id);
+            changed = true;
+        }
+    }
+
+    // 5. Finalize
+    listsIndex = Array.from(indexMap.values());
+    if (changed) {
+        console.log(`[INDEX] Sync complete. Saving ${listsIndex.length} lists.`);
+        saveIndex();
+    } else {
+        console.log(`[INDEX] Loaded ${listsIndex.length} lists. Index properly synced.`);
+    }
 }
+
+// rebuildIndex is no longer needed separate, logic merged above.
+// function rebuildIndex() { ... } DELETED
 
 function saveIndex() {
     fs.promises.writeFile(LISTS_INDEX_FILE, JSON.stringify(listsIndex)).catch(e => console.error("Index save failed", e));
@@ -136,6 +163,24 @@ app.post('/api/lists/toggle', isAuthenticated, async (req, res) => {
     res.json({ success: true, public: isPublic });
 });
 
+// API: Rename Admin Title (Private)
+app.post('/api/lists/rename-admin', isAuthenticated, async (req, res) => {
+    const { id, adminTitle } = req.body;
+    let listData = getListData(id);
+
+    if (!listData) return res.status(404).json({ error: "List not found" });
+
+    listData.adminTitle = adminTitle;
+
+    // Save
+    await saveToDisk(id, listData);
+
+    // Update Index (Visible only to Admin)
+    updateIndex(id, { adminTitle: adminTitle });
+
+    res.json({ success: true });
+});
+
 // API: Dynamic Manifest
 app.get('/api/manifest/:id', (req, res) => {
     const listId = req.params.id;
@@ -204,6 +249,8 @@ io.on('connection', (socket) => {
         socket.join(roomId);
 
         // Include public status in init
+        // SECURITY: Do NOT send adminTitle here unless we specifically want to (usually we don't need it in the list view)
+        // If we did, we'd need to check isAdmin again.
         socket.emit('init', {
             content: listData.content,
             lastModified: listData.lastModified,
@@ -393,6 +440,7 @@ app.post('/api/lists/create', isAuthenticated, async (req, res) => {
         updateIndex(id, {
             id,
             title: 'New List',
+            adminTitle: null,
             lastModified: initialData.lastModified,
             public: false,
             size: JSON.stringify(initialData).length
