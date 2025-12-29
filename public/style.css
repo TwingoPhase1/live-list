@@ -110,7 +110,8 @@ body {
 }
 
 .nav-share,
-.nav-history {
+.nav-history,
+.nav-admin {
     padding: 6px 12px;
     border-radius: 99px;
     font-size: 0.85rem;
@@ -126,7 +127,8 @@ body {
 }
 
 .nav-share:hover,
-.nav-history:hover {
+.nav-history:hover,
+.nav-admin:hover {
     transform: translateY(-1px);
     opacity: 0.9;
 }
@@ -153,6 +155,14 @@ body {
     /* Amber/Brown ish */
     color: #92400e;
     /* Amber-800 */
+}
+
+/* Admin Title Button */
+.nav-admin {
+    background: rgba(217, 119, 6, 0.1);
+    /* Amber-600/10 */
+    color: #d97706;
+    /* Amber-600 */
 }
 
 

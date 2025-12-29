@@ -70,17 +70,17 @@ if (titleInput) {
     });
 }
 
-// Admin Title Logic
-const adminTitleInput = document.getElementById('adminTitleInput');
-const adminTitleContainer = document.getElementById('admin-title-container');
-
-if (adminTitleInput) {
-    adminTitleInput.addEventListener('change', () => { // Use change for less spam, or input for realtime
-        const adminTitle = adminTitleInput.value;
-        // console.log("Updating Admin Title:", adminTitle);
-        socket.emit('updateAdminTitle', { roomId, adminTitle });
+// Title Update Logic
+if (titleInput) {
+    titleInput.addEventListener('input', () => {
+        const title = titleInput.value;
+        document.title = title || 'Live-List';
+        socket.emit('updateTitle', { roomId, title });
     });
 }
+
+// Admin Title Logic (Button in Status Bar)
+const btnAdminTitle = document.getElementById('btn-admin-title');
 
 // ...
 
@@ -96,8 +96,17 @@ socket.on('init', (data) => {
 
     // Admin Title (Only present if Admin)
     if (typeof data.adminTitle !== 'undefined') {
-        if (adminTitleContainer) adminTitleContainer.style.display = 'block';
-        if (adminTitleInput) adminTitleInput.value = data.adminTitle;
+        if (btnAdminTitle) {
+            btnAdminTitle.style.display = 'inline-block';
+            updateAdminTitleButton(data.adminTitle);
+
+            // Re-bind to ensure closure freshness? Or just once.
+            // Best to remove old listener if init called multiple times? 
+            // cloneNode trick or simpler: just use a flag or assume overwrite.
+            // Using a named handler function avoids duplication issues if we bound it outside.
+            // We'll bind it once outside, and just use the data.adminTitle stored in DOM or var.
+            btnAdminTitle.dataset.current = data.adminTitle || "";
+        }
     }
 
     // Update Share Button State
@@ -105,6 +114,31 @@ socket.on('init', (data) => {
         updateShareButton(data.public);
     }
 });
+
+// Helper for Button Text
+function updateAdminTitleButton(title) {
+    if (!btnAdminTitle) return;
+    if (title && title.trim().length > 0) {
+        btnAdminTitle.textContent = `🏷️ ${title}`;
+    } else {
+        btnAdminTitle.textContent = `🏷️`;
+    }
+}
+
+// Bind Click Outside Init
+if (btnAdminTitle) {
+    btnAdminTitle.addEventListener('click', () => {
+        const current = btnAdminTitle.dataset.current || "";
+        const newTitle = prompt("Private Admin Title:", current);
+        if (newTitle === null) return;
+
+        // Optimistic Update
+        updateAdminTitleButton(newTitle);
+        btnAdminTitle.dataset.current = newTitle;
+
+        socket.emit('updateAdminTitle', { roomId, adminTitle: newTitle });
+    });
+}
 
 socket.on('metaUpdate', (data) => {
     // ... (existing)

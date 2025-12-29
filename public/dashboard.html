@@ -83,7 +83,7 @@
                         <!-- Actions Separated -->
                         <div class="card-actions" onmousedown="event.stopPropagation()" onclick="event.stopPropagation()">
                              <!-- 1. Edit Admin Title (Moved Here) -->
-                             <button class="btn-icon" onclick="editAdminTitle('${list.id}', '${list.adminTitle || ''}')" title="Rename (Admin Only)">✏️</button>
+                             <button class="btn-icon" onclick="editAdminTitle('${list.id}', '${list.adminTitle || ''}')" title="Rename (Admin Only)">🏷️</button>
                              
                              <!-- 2. Public/Private Toggle -->
                             <button class="${lockClass}" onclick="toggleShare('${list.id}', ${isPublic}, event)" title="${lockTitle}">${lockIcon}</button>
