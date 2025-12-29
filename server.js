@@ -136,7 +136,45 @@ app.post('/api/lists/toggle', isAuthenticated, async (req, res) => {
     res.json({ success: true, public: isPublic });
 });
 
+// API: Dynamic Manifest
+app.get('/api/manifest/:id', (req, res) => {
+    const listId = req.params.id;
+    const listData = getListData(listId);
 
+    if (!listData) {
+        return res.status(404).json({ error: "List not found" });
+    }
+
+    // Access Check (Match list access logic)
+    const isAdmin = req.session && req.session.user;
+    const isPublic = listData.public !== false;
+
+    if (!isPublic && !isAdmin) {
+        return res.status(403).json({ error: "Access Denied" });
+    }
+
+    const title = listData.title || "Live-List";
+
+    const manifest = {
+        "name": title,
+        "short_name": title.length > 12 ? title.substring(0, 12) + "..." : title,
+        "description": `List: ${title}`,
+        "start_url": `/${listId}`,
+        "id": `/${listId}`, // Unique ID for PWA differentiation
+        "display": "standalone",
+        "background_color": "#f4f4f5",
+        "theme_color": "#f4f4f5",
+        "icons": [
+            {
+                "src": "/icon.png",
+                "sizes": "512x512",
+                "type": "image/png"
+            }
+        ]
+    };
+
+    res.json(manifest);
+});
 
 // ... (Socket Logic) ...
 
@@ -422,6 +460,8 @@ app.get('/dashboard', (req, res) => {
 
 // Serve list.html for any other route (Dynamic List ID)
 // MUST BE LAST ROUTE to avoid intercepting /login, /api, etc.
+// Serve list.html for any other route (Dynamic List ID)
+// MUST BE LAST ROUTE to avoid intercepting /login, /api, etc.
 app.get('/:id', (req, res) => {
     if (req.params.id === 'favicon.ico') return res.status(404).end();
 
@@ -434,7 +474,26 @@ app.get('/:id', (req, res) => {
         const isPublic = listData.public !== false;
 
         if (isPublic || isAdmin) {
-            res.sendFile(path.join(__dirname, 'public', 'list.html'));
+            // Server-side inject manifest and title
+            fs.readFile(path.join(__dirname, 'public', 'list.html'), 'utf8', (err, html) => {
+                if (err) return res.status(500).send("Error loading page");
+
+                const title = listData.title || "Live-List";
+
+                // Replace Manifest
+                let modifiedHtml = html.replace(
+                    '<link rel="manifest" href="/manifest.json">',
+                    `<link rel="manifest" href="/api/manifest/${listId}">`
+                );
+
+                // Replace Title
+                modifiedHtml = modifiedHtml.replace(
+                    '<title>Live-List</title>',
+                    `<title>${title}</title>`
+                );
+
+                res.send(modifiedHtml);
+            });
         } else {
             console.log(`[ACCESS DENIED] Private List ${listId}`);
             res.status(403).sendFile(path.join(__dirname, 'public', '404.html'));
