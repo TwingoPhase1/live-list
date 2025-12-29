@@ -562,17 +562,38 @@ app.get('/:id', (req, res) => {
 
                 const title = listData.title || "Live-List";
 
-                // Replace Manifest
+                // Generate Description (Strip HTML)
+                let description = "A collaborative list on Live-List.";
+                if (isPublic && listData.content) {
+                    // Simple regex strip (sufficient for basic previews)
+                    const plainText = listData.content.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+                    description = plainText.substring(0, 150) + (plainText.length > 150 ? '...' : '');
+                } else if (!isPublic) {
+                    description = "🔒 Private List";
+                }
+
+                // Replace Manifest & Title
                 let modifiedHtml = html.replace(
                     '<link rel="manifest" href="/manifest.json">',
                     `<link rel="manifest" href="/api/manifest/${listId}">`
                 );
 
-                // Replace Title
                 modifiedHtml = modifiedHtml.replace(
                     '<title>Live-List</title>',
                     `<title>${title}</title>`
                 );
+
+                // Inject Open Graph Tags
+                const ogTags = `
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="${title}">
+    <meta property="og:description" content="${description.replace(/"/g, '&quot;')}">
+    <meta property="og:url" content="${req.protocol}://${req.get('host')}/${listId}">
+    <meta property="og:site_name" content="Live-List">
+                `;
+
+                // Insert before </head>
+                modifiedHtml = modifiedHtml.replace('</head>', `${ogTags}</head>`);
 
                 res.send(modifiedHtml);
             });

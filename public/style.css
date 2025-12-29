@@ -614,6 +614,18 @@ body {
     display: flex;
 }
 
+/* Version Tag */
+.version-tag {
+    position: fixed;
+    bottom: 1rem;
+    left: 1rem;
+    font-size: 0.8rem;
+    color: var(--secondary-text);
+    opacity: 0.5;
+    pointer-events: none;
+    font-weight: 500;
+}
+
 .qty-badge .btn-inc,
 .qty-badge .btn-dec {
     font-size: 0.5em;
