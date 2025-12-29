@@ -1,0 +1,16 @@
+{
+    "name": "Live-List",
+    "short_name": "Live-List",
+    "description": "Minimalist collaborative list app",
+    "start_url": "/dashboard",
+    "display": "standalone",
+    "background_color": "#f4f4f5",
+    "theme_color": "#f4f4f5",
+    "icons": [
+        {
+            "src": "/icon.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        }
+    ]
+}

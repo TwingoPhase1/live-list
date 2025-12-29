@@ -1,0 +1,21 @@
+{
+  "name": "live-list-collaborative",
+  "version": "1.0.0",
+  "description": "Zero-friction real-time collaborative list",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.7",
+    "express": "^4.22.1",
+    "express-session": "^1.18.2",
+    "nanoid": "^3.3.4",
+    "socket.io": "^4.8.3"
+  }
+}

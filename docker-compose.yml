@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  live-list:
+    build: .
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production

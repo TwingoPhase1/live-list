@@ -1,0 +1,983 @@
+:root {
+    --bg-color: #f4f4f5;
+    /* Zinc 100 */
+    --text-color: #27272a;
+    /* Zinc 800 */
+    --textarea-bg: #ffffff;
+    --status-color: #a1a1aa;
+    /* Zinc 400 */
+    --shadow-color: rgba(0, 0, 0, 0.08);
+    color-scheme: light dark;
+
+    /* Dashboard Variables */
+    --card-bg: #ffffff;
+    --border-color: #e4e4e7;
+    --secondary-text: #71717a;
+    --input-line: #d4d4d8;
+    --nav-bg: rgba(0, 0, 0, 0.05);
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg-color: #09090b;
+        /* Zinc 950 */
+        --text-color: #e4e4e7;
+        /* Zinc 200 */
+        --textarea-bg: #18181b;
+        /* Zinc 900 */
+        --status-color: #52525b;
+        /* Zinc 600 */
+        --shadow-color: rgba(0, 0, 0, 0.4);
+
+        /* Dashboard Variables */
+        --card-bg: #161616;
+        --border-color: #27272a;
+        --secondary-text: #a1a1aa;
+        --input-line: #3f3f46;
+        --nav-bg: rgba(255, 255, 255, 0.1);
+    }
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    padding: 1rem;
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+
+
+.status-bar {
+    position: fixed;
+    top: 1rem;
+    right: 2rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    z-index: 10;
+    pointer-events: none;
+}
+
+.presence {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #22c55e;
+    /* Green-500 */
+    background: rgba(34, 197, 94, 0.1);
+    padding: 4px 8px;
+    border-radius: 99px;
+    opacity: 1;
+    transition: opacity 0.3s ease;
+}
+
+.presence.hidden {
+    opacity: 0;
+}
+
+.status {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--status-color);
+    transition: opacity 0.3s ease;
+}
+
+.nav-return {
+    text-decoration: none;
+    color: var(--text-color);
+    background: var(--nav-bg);
+    padding: 6px 12px;
+    border-radius: 99px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    pointer-events: auto;
+    /* Enable clicking */
+    transition: background 0.2s, transform 0.2s;
+}
+
+.nav-return:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: translateY(-1px);
+}
+
+.nav-share,
+.nav-history {
+    padding: 6px 12px;
+    border-radius: 99px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    pointer-events: auto;
+    transition: all 0.2s;
+    border: none;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 0.5rem;
+}
+
+.nav-share:hover,
+.nav-history:hover {
+    transform: translateY(-1px);
+    opacity: 0.9;
+}
+
+/* Share Button States */
+.nav-share[data-public="true"] {
+    background: rgba(59, 130, 246, 0.1);
+    /* Blue-500/10 */
+    color: #3b82f6;
+    /* Blue-500 */
+}
+
+.nav-share[data-public="false"],
+.nav-share:not([data-public]) {
+    background: rgba(249, 115, 22, 0.1);
+    /* Orange-500/10 */
+    color: #f97316;
+    /* Orange-500 */
+}
+
+/* History Button */
+.nav-history {
+    background: rgba(120, 53, 15, 0.1);
+    /* Amber/Brown ish */
+    color: #92400e;
+    /* Amber-800 */
+}
+
+
+/* Title Input */
+.list-title-input {
+    width: 100%;
+    background: transparent;
+    border: none;
+    color: var(--text-color);
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    outline: none;
+    font-family: 'Inter', sans-serif;
+}
+
+.list-title-input::placeholder {
+    color: var(--secondary-text);
+}
+
+.list-title-input:focus {
+    opacity: 1;
+}
+
+/* Toolbar Styles */
+.container {
+    flex: 1;
+    max-width: 1200px;
+    margin: 0 auto;
+    width: 100%;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    /* Container padding handled by body/max-width */
+    height: 100%;
+}
+
+.toolbar {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+/* --- UI Redesign (Sleek & Modern) --- */
+
+/* --- Simple Modern UI (Refined) --- */
+
+/* Global Reset overrides */
+/* Removed hardcoded dark body to allow variable-based switching */
+
+/* Login Page */
+.login-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 20px;
+}
+
+.login-card {
+    /* Seamless look: No background box if possible, or very subtle */
+    background: transparent;
+    /* Or minimal card */
+    max-width: 420px;
+    width: 100%;
+    text-align: center;
+    padding: 0;
+}
+
+.icon-wrapper {
+    margin-bottom: 30px;
+}
+
+.login-logo {
+    width: 80px;
+    height: 80px;
+    border-radius: 20px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+}
+
+.login-card h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 10px;
+    color: var(--text-color);
+    letter-spacing: -0.5px;
+}
+
+.subtitle {
+    color: var(--secondary-text);
+    margin-bottom: 40px;
+    font-size: 1rem;
+    font-weight: 400;
+}
+
+.input-group {
+    margin-bottom: 25px;
+}
+
+.input-group input {
+    width: 100%;
+    padding: 15px 0;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--input-line);
+    color: var(--text-color);
+    font-size: 1.1rem;
+    outline: none;
+    transition: all 0.3s ease;
+    border-radius: 0;
+}
+
+.input-group input:focus {
+    border-bottom-color: var(--text-color);
+}
+
+.input-group input::placeholder {
+    color: var(--secondary-text);
+}
+
+.btn-primary {
+    width: 100%;
+    padding: 16px;
+    background: var(--text-color);
+    color: var(--bg-color);
+    border: none;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: transform 0.2s ease, opacity 0.2s;
+    margin-top: 10px;
+}
+
+.btn-primary:hover {
+    transform: scale(1.02);
+    opacity: 0.9;
+}
+
+.toggle-text {
+    margin-top: 30px;
+    font-size: 0.9rem;
+    color: #444;
+}
+
+.toggle-text span {
+    color: #888;
+    text-decoration: underline;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.toggle-text span:hover {
+    color: #fff;
+}
+
+/* Dashboard */
+.dashboard-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    width: 100%;
+    padding: 40px;
+}
+
+.dashboard-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 60px;
+}
+
+.dashboard-header .actions {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+}
+
+.dashboard-header .btn-primary {
+    width: auto;
+    margin-top: 0;
+    padding: 10px 20px;
+}
+
+.dashboard-header .btn-secondary {
+    width: auto;
+    border: 1px solid var(--border-color);
+    padding: 10px 20px;
+    border-radius: 12px;
+    color: var(--secondary-text);
+}
+
+.dashboard-header .btn-secondary:hover {
+    background: rgba(128, 128, 128, 0.1);
+    border-color: var(--text-color);
+    color: var(--text-color);
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.brand h1 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    letter-spacing: -0.5px;
+}
+
+.logo-small {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+}
+
+.lists-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 30px;
+}
+
+/* Minimal Card */
+/* Minimal Card */
+.list-card {
+    background: var(--card-bg);
+    border-radius: 20px;
+    padding: 30px;
+    transition: transform 0.3s ease, background 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-height: 180px;
+    border: 1px solid transparent;
+    /* cursor: pointer;  <-- REMOVED from wrapper */
+    box-shadow: 0 4px 6px -1px var(--shadow-color);
+}
+
+.list-card:hover {
+    transform: translateY(-5px);
+    border-color: var(--border-color);
+}
+
+.list-card .card-content {
+    cursor: pointer;
+    /* <-- ADDED here */
+    flex: 1;
+    /* Fill space */
+}
+
+.list-card h3 {
+    font-size: 1.4rem;
+    margin-bottom: 10px;
+    color: var(--text-color);
+    font-weight: 600;
+}
+
+.list-card .meta {
+    font-size: 0.9rem;
+    color: var(--secondary-text);
+    margin-bottom: 5px;
+}
+
+.card-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 20px;
+    position: relative;
+    /* Ensure it stays on top */
+    z-index: 100;
+}
+
+.btn-icon {
+    background: transparent;
+    color: var(--secondary-text);
+    border: 1px solid var(--border-color);
+    cursor: pointer;
+    font-size: 1rem;
+    padding: 10px;
+    border-radius: 50%;
+    transition: all 0.2s ease;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 1;
+    margin-left: 8px;
+}
+
+.btn-icon:hover {
+    background: var(--text-color);
+    color: var(--bg-color);
+    border-color: var(--text-color);
+    transform: translateY(-2px);
+}
+
+.btn-secondary {
+    background: transparent;
+    color: var(--secondary-text);
+    border: none;
+    font-weight: 500;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.btn-secondary:hover {
+    color: var(--text-color);
+}
+
+.btn-delete:hover {
+    background: #ef4444;
+    color: #ffffff;
+    border-color: #ef4444;
+}
+
+.btn-private {
+    border-color: #f59e0b;
+    /* Amber/Orange */
+    color: #f59e0b;
+}
+
+.btn-private:hover {
+    background: #f59e0b;
+    color: #fff;
+    border-color: #f59e0b;
+}
+
+/* Empty State */
+.loading-state,
+.empty-state,
+.error-state {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 60px;
+    color: #666;
+    font-size: 1.1rem;
+    border: 2px dashed rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+}
+
+
+.toolbar button {
+    background: transparent;
+    border: none;
+    color: var(--text-color);
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-family: inherit;
+    font-weight: 500;
+    transition: background-color 0.2s ease;
+}
+
+.toolbar button:hover {
+    background-color: var(--bg-color);
+}
+
+#editor {
+    flex: 1;
+    width: 100%;
+    /* max-width handled by container */
+    padding: 2rem;
+    border: none;
+    outline: none;
+    resize: none;
+    border-radius: 24px;
+    background-color: var(--textarea-bg);
+    color: var(--text-color);
+    font-size: 1.125rem;
+    line-height: 1.8;
+    box-shadow: 0 20px 25px -5px var(--shadow-color), 0 8px 10px -6px var(--shadow-color);
+    transition: background-color 0.3s ease, color 0.3s ease, box-shadow 0.3s ease;
+    white-space: pre-wrap;
+    overflow-y: auto;
+    word-wrap: break-word;
+}
+
+/* Markdown Heading Styles */
+#editor h1,
+#editor h2,
+#editor h3 {
+    margin-top: 1em;
+    margin-bottom: 0.5em;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+#editor h1 {
+    font-size: 1.8em;
+}
+
+#editor h2 {
+    font-size: 1.4em;
+}
+
+/* Indentation Styling (execCommand uses blockquote or margin) */
+#editor blockquote {
+    margin: 0 0 0 2rem;
+    /* Clean indent */
+    border: none;
+    padding: 0;
+}
+
+/* Quantity Badge Styles */
+/* Quantity Badge Styles - Stacked Arrows */
+.qty-badge {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    vertical-align: middle;
+    white-space: nowrap;
+    background-color: rgba(128, 128, 128, 0.15);
+    border: 1px solid var(--status-color);
+    border-radius: 6px;
+    padding: 0 4px;
+    margin: 0 4px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-color);
+    cursor: default;
+    user-select: none;
+    transition: all 0.2s ease;
+    height: 1.8em;
+    /* Fixed height */
+}
+
+.qty-badge .val {
+    padding: 0 4px;
+    min-width: 18px;
+    text-align: center;
+    line-height: 1;
+}
+
+.qty-badge .controls {
+    display: none;
+    /* Hidden by default */
+    flex-direction: column;
+    margin-left: 2px;
+}
+
+.qty-badge:hover {
+    background-color: var(--status-color);
+    color: var(--textarea-bg);
+    border-color: transparent;
+}
+
+.qty-badge:hover .controls {
+    display: flex;
+}
+
+.qty-badge .btn-inc,
+.qty-badge .btn-dec {
+    font-size: 0.5em;
+    /* Smaller arrows */
+    line-height: 1;
+    cursor: pointer;
+    padding: 1px 2px;
+    opacity: 0.8;
+}
+
+.qty-badge .btn-inc:hover,
+.qty-badge .btn-dec:hover {
+    opacity: 1;
+    background-color: rgba(255, 255, 255, 0.3);
+    border-radius: 2px;
+}
+
+/* Toolbar Icon */
+.icon-qty {
+    display: inline-block;
+    background-color: rgba(128, 128, 128, 0.2);
+    border: 1px solid currentColor;
+    border-radius: 4px;
+    width: 18px;
+    /* Fixed square size */
+    height: 18px;
+    line-height: 16px;
+    text-align: center;
+    font-size: 0.75rem;
+    margin-right: 4px;
+}
+
+/* Placeholder logic for div */
+#editor[contenteditable]:empty::before {
+    content: attr(placeholder);
+    color: var(--status-color);
+    opacity: 0.6;
+    display: block;
+    /* For some browsers */
+}
+
+@media (max-width: 640px) {
+    body {
+        padding: 0.5rem;
+    }
+
+    /* Un-fix status bar on mobile so it stacks */
+    .status-bar {
+        position: relative;
+        top: auto;
+        right: auto;
+        width: 100%;
+        justify-content: flex-end;
+        pointer-events: auto;
+        margin-bottom: 0.5rem;
+        padding: 0 0.5rem;
+    }
+
+    /* Reduce title size */
+    .list-title-input {
+        font-size: 1.5rem;
+    }
+
+    .status {
+        /* Reset absolute positioning if derived from desktop */
+        position: static;
+    }
+
+    #editor {
+        padding: 1.5rem;
+        font-size: 1rem;
+        border-radius: 16px;
+    }
+
+    .toolbar {
+        width: 100%;
+        /* Full width toolbar on mobile */
+        justify-content: center;
+        padding: 8px 0;
+    }
+
+    /* Mobile: Always show controls for badges (no hover) & larger targets */
+    .qty-badge .controls {
+        display: flex;
+        opacity: 0.6;
+    }
+
+    .qty-badge .btn-inc,
+    .qty-badge .btn-dec {
+        font-size: 0.8rem;
+        /* Larger arrows */
+        padding: 4px 6px;
+        /* Larger hit area */
+    }
+
+    /* Dashboard Mobile Fixes */
+    .dashboard-container {
+        padding: 1.5rem;
+        /* Reduce padding from 40px */
+    }
+
+    .dashboard-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+
+    .dashboard-header .actions {
+        width: 100%;
+    }
+
+    .dashboard-header .btn-primary {
+        width: 100%;
+        /* Full width button on mobile */
+    }
+}
+
+/* Read-Only Mode */
+body.read-only .qty-badge .controls,
+body.read-only .qty-badge:hover .controls {
+    display: none !important;
+}
+
+
+/* History Modal */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 1;
+    transition: opacity 0.2s ease;
+    backdrop-filter: blur(2px);
+}
+
+.modal-overlay.hidden {
+    display: none;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.modal-content {
+    background: var(--card-bg);
+    color: var(--text-color);
+    width: 90%;
+    max-width: 500px;
+    height: 80vh;
+    border-radius: 16px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+}
+
+.modal-header {
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h3 {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+}
+
+.close-btn {
+    background: transparent;
+    border: none;
+    color: var(--secondary-text);
+    font-size: 1.5rem;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0.25rem;
+    border-radius: 4px;
+}
+
+.close-btn:hover {
+    color: var(--text-color);
+    background: var(--nav-bg);
+}
+
+.history-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.5rem;
+}
+
+.history-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    border-bottom: 1px solid var(--border-color);
+    transition: background 0.2s;
+    border-radius: 8px;
+    margin-bottom: 2px;
+}
+
+.history-item:last-child {
+    border-bottom: none;
+}
+
+.history-item:hover {
+    background: var(--nav-bg);
+}
+
+.history-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+    /* Take available space */
+    min-width: 0;
+    /* Fix flex ellipsis */
+    margin-right: 1rem;
+}
+
+.history-time {
+    font-weight: 500;
+    font-size: 0.95rem;
+}
+
+.history-preview {
+    font-size: 0.85rem;
+    color: var(--secondary-text);
+    /* Full content view */
+    display: block;
+    max-height: 200px;
+    /* Limit height */
+    overflow-y: auto;
+    /* Scrollable */
+    overflow-y: auto;
+    /* Scrollable */
+    white-space: normal;
+    /* Allow HTML flow */
+    /* Preserve formatting */
+    background: rgba(0, 0, 0, 0.03);
+    padding: 8px;
+    border-radius: 4px;
+    border-left: 3px solid var(--status-color);
+    margin-top: 4px;
+}
+
+.btn-restore {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-color);
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-restore:hover {
+    background: var(--text-color);
+    color: var(--bg-color);
+    border-color: var(--text-color);
+}
+
+.loading-history,
+.empty-history {
+    padding: 2rem;
+    text-align: center;
+    color: var(--secondary-text);
+}
+
+/* Diff View Styles */
+.diff-ins {
+    background-color: rgba(34, 197, 94, 0.2);
+    /* Green-500/20 */
+    color: #15803d;
+    /* Green-700 */
+    text-decoration: none;
+}
+
+.diff-del {
+    background-color: rgba(239, 68, 68, 0.2);
+    /* Red-500/20 */
+    color: #b91c1c;
+    /* Red-700 */
+    text-decoration: line-through;
+}
+
+.diff-legend-ins {
+    color: #22c55e;
+    font-weight: 600;
+}
+
+.diff-legend-del {
+    color: #ef4444;
+    font-weight: 600;
+}
+
+/* Ensure diff content handles HTML */
+.diff-content del {
+    text-decoration: none;
+    /* Reset default del */
+}
+
+.diff-content ins {
+    text-decoration: none;
+    /* Reset default ins */
+}
+
+/* --- Notion/Docmost-style Placeholders (Scoped to Editor) --- */
+/* Controlled by JS class .is-empty and data-placeholder attribute */
+
+#editor h1,
+#editor h2,
+#editor h3 {
+    position: relative;
+    /* Ensure hover area covers the pseudo-element */
+}
+
+/* Base style for the placeholder pseudo-element */
+#editor h1::before,
+#editor h2::before,
+#editor h3::before {
+    /* Default: No content unless specified */
+    content: none;
+    position: absolute;
+    left: 0;
+    /* Align with text */
+    top: 0;
+    color: var(--status-color);
+    opacity: 0.5;
+    pointer-events: none;
+    /* Allow clicking through */
+    font-weight: normal;
+}
+
+/* 1. Ghost Hashtags (Hover Effect) - REMOVED per user request */
+/*
+#editor h1:not(.is-empty):hover::before {
+    content: "# ";
+    left: -1.5em;
+    opacity: 0.4;
+}
+#editor h2:not(.is-empty):hover::before {
+    content: "## ";
+    left: -2em;
+    opacity: 0.4;
+}
+#editor h3:not(.is-empty):hover::before {
+    content: "### ";
+    left: -2.5em;
+    opacity: 0.4;
+}
+*/
+
+/* 2. Placeholders (Empty State) - Uses data-placeholder */
+#editor h1.is-empty::before,
+#editor h2.is-empty::before,
+#editor h3.is-empty::before {
+    content: attr(data-placeholder);
+    opacity: 1;
+    /* Visible */
+    color: #adb5bd;
+    /* Zinc-400 equivalent */
+}
+
+/* Adjust editor padding for the ghost tags */
+#editor {
+    padding-left: 2.5rem;
+}

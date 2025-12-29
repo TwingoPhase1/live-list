@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#ffffff">
+    <title>Access Denied | Live-List</title>
+    <link rel="stylesheet" href="style.css?v=19">
+    <style>
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            text-align: center;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+        }
+
+        .container {
+            max-width: 400px;
+            padding: 2rem;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px var(--shadow-color);
+        }
+
+        h1 {
+            margin-bottom: 1rem;
+            font-size: 3rem;
+            margin-top: 0;
+        }
+
+        h2 {
+            margin-bottom: 1rem;
+            color: var(--text-color);
+        }
+
+        p {
+            margin-bottom: 2rem;
+            color: var(--secondary-text);
+        }
+
+        .btn {
+            background: var(--text-color);
+            color: var(--bg-color);
+            padding: 0.75rem 1.5rem;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 500;
+            display: inline-block;
+            transition: opacity 0.2s;
+        }
+
+        .btn:hover {
+            opacity: 0.9;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🔒</h1>
+        <h2>Private List</h2>
+        <p>This list is private. Only the creator can access it.</p>
+        <a href="/" class="btn">Go to Dashboard</a>
+    </div>
+</body>
+
+</html>

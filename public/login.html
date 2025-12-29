@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f4f4f5">
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#09090b">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="/icon.png">
+    <title>Live-List Login</title>
+    <link rel="stylesheet" href="style.css?v=4">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div class="login-container">
+        <div class="login-card">
+            <div class="icon-wrapper">
+                <img src="/icon.png" alt="Logo" class="login-logo">
+            </div>
+            <h1 id="formTitle">Welcome Back</h1>
+            <p class="subtitle">Manage your shared lists</p>
+
+            <form id="authForm">
+                <div class="input-group">
+                    <input type="text" id="username" placeholder="Username" required autocomplete="username">
+                </div>
+                <div class="input-group">
+                    <input type="password" id="password" placeholder="Password" required
+                        autocomplete="current-password">
+                </div>
+                <button type="submit" class="btn-primary" id="submitBtn">Login</button>
+            </form>
+
+            <p class="toggle-text" id="toggleMode" style="display: none;">Need an account? <span>Register</span></p>
+        </div>
+    </div>
+
+    <script>
+        const form = document.getElementById('authForm');
+        const toggle = document.getElementById('toggleMode');
+        const title = document.getElementById('formTitle');
+        const submitBtn = document.getElementById('submitBtn');
+        let isRegister = false;
+
+        // Check system status on load
+        async function checkStatus() {
+            try {
+                const res = await fetch('/api/status');
+                const data = await res.json();
+
+                if (data.initialized) {
+                    // System has users -> Force Login Mode
+                    isRegister = false;
+                    title.textContent = 'Welcome Back';
+                    submitBtn.textContent = 'Login';
+                    toggle.style.display = 'none'; // Hide register option
+                } else {
+                    // First time setup -> Force Register Mode
+                    isRegister = true;
+                    title.textContent = 'Setup Admin Account';
+                    submitBtn.textContent = 'Create Admin';
+                    toggle.style.display = 'none'; // Hide login option
+                }
+            } catch (e) {
+                console.error("Failed to check status", e);
+            }
+        }
+        checkStatus();
+
+        // Keep toggle functionality for debugging/fallback if needed, but it's hidden
+        toggle.addEventListener('click', () => {
+            isRegister = !isRegister;
+            title.textContent = isRegister ? 'Create Account' : 'Welcome Back';
+            submitBtn.textContent = isRegister ? 'Register' : 'Login';
+            toggle.innerHTML = isRegister ? 'Already have an account? <span>Login</span>' : 'Need an account? <span>Register</span>';
+        });
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            const endpoint = isRegister ? '/api/register' : '/api/login';
+
+            try {
+                const res = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    window.location.href = data.redirect;
+                } else {
+                    alert(data.error || 'Error');
+                }
+            } catch (err) {
+                alert('Connection error');
+            }
+        });
+    </script>
+</body>
+
+</html>

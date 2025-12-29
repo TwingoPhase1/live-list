@@ -1,0 +1,6 @@
+node_modules/
+data/
+users.json
+.env
+.DS_Store
+lists-index.json

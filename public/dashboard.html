@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f4f4f5">
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#09090b">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="/icon.png">
+    <title>Live-List Dashboard</title>
+    <link rel="stylesheet" href="style.css?v=9999">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div class="dashboard-container">
+        <header class="dashboard-header">
+            <div class="brand">
+                <img src="/icon.png" alt="Logo" class="logo-small">
+                <h1>Dashboard</h1>
+            </div>
+            <div class="actions">
+                <button class="btn-primary" onclick="createNewList()">+ New List</button>
+                <button class="btn-secondary" onclick="logout()">Logout</button>
+            </div>
+        </header>
+
+        <main class="lists-grid" id="listsContainer">
+            <!-- Loading state -->
+            <div class="loading-state">Loading your lists...</div>
+        </main>
+    </div>
+
+    <script>
+        // Global function for card click
+        function openList(id) {
+            window.location.href = '/' + id;
+        }
+
+        async function loadLists() {
+            const container = document.getElementById('listsContainer');
+            try {
+                const res = await fetch('/api/lists');
+                if (res.status === 401) window.location.href = '/login';
+
+                const lists = await res.json();
+                container.innerHTML = '';
+
+                if (lists.length === 0) {
+                    container.innerHTML = '<div class="empty-state">No list found. Create one!</div>';
+                    return;
+                }
+
+                lists.forEach(list => {
+                    const date = new Date(list.mtime).toLocaleDateString();
+                    const card = document.createElement('div');
+                    card.className = 'list-card';
+                    const displayName = list.title || list.id;
+                    const isPublic = list.public !== false;
+                    const lockIcon = isPublic ? '🌍' : '🔒';
+                    const lockTitle = isPublic ? 'Public (Click to Lock)' : 'Private (Click to Share)';
+                    const lockClass = isPublic ? 'btn-icon' : 'btn-icon btn-private';
+
+                    // SIMPLE, ROBUST INLINE EVENTS
+                    // 1. Remove wrapper click
+                    // card.setAttribute('onclick', `openList('${list.id}')`); <-- REMOVED
+
+                    card.innerHTML = `
+                        <!-- Content Clickable ONLY -->
+                        <div class="card-content" onclick="openList('${list.id}')">
+                            <h3>${displayName}</h3>
+                            <p class="meta">Modified: ${date}</p>
+                            <p class="meta">Size: ${(list.size / 1024).toFixed(1)} KB</p>
+                        </div>
+                        <!-- Actions Separated (Sibling) -->
+                        <div class="card-actions" onmousedown="event.stopPropagation()" onclick="event.stopPropagation()">
+                             <!-- Buttons STOP propagation explicitly -->
+                            <button class="${lockClass}" onmousedown="event.stopPropagation(); toggleShare('${list.id}', ${isPublic}, event)" title="${lockTitle}">${lockIcon}</button>
+                            <button class="btn-icon" onmousedown="event.stopPropagation(); copyLink('${list.id}')" title="Copy Link">🔗</button>
+                            <button class="btn-icon btn-delete" onclick="event.stopPropagation(); deleteList('${list.id}')" title="Delete List">🗑️</button>
+                        </div>
+                    `;
+                    // Delete List
+                    // The instruction provided a block for `deleteBtn.onclick` here,
+                    // but `deleteBtn` is not defined in the current context as elements are created via innerHTML.
+                    // The inline onclick for the delete button already calls `deleteList`.
+                    // If a separate event listener was intended, the element would need to be queried after innerHTML.
+                    // For now, adhering to the instruction's intent of modifying `deleteList` and exposing it globally.
+
+                    container.appendChild(card);
+                });
+            } catch (err) {
+                console.error(err);
+                container.innerHTML = '<div class="error-state">Failed to load lists</div>';
+            }
+        }
+
+        async function createNewList() {
+            try {
+                const res = await fetch('/api/lists/create', { method: 'POST' });
+                const data = await res.json();
+                if (data.redirect) {
+                    window.location.href = data.redirect;
+                } else if (data.id) {
+                    window.location.href = '/' + data.id;
+                }
+            } catch (err) {
+                alert("Failed to create list");
+            }
+        }
+
+        async function toggleShare(id, currentStatus, event) {
+            if (event) event.stopPropagation();
+            try {
+                const res = await fetch('/api/lists/toggle', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id, public: !currentStatus })
+                });
+                if (res.ok) {
+                    loadLists();
+                } else {
+                    alert("Failed to toggle share");
+                }
+            } catch (e) { alert("Error: " + e.message); }
+        }
+
+        async function deleteList(id) {
+            // Double Verification - RESTORED
+            if (!confirm("Are you sure you want to delete this list?")) return;
+
+            try {
+                const res = await fetch('/api/lists/delete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id })
+                });
+
+                if (res.ok) {
+                    loadLists();
+                } else {
+                    const data = await res.json().catch(() => ({}));
+                    alert("Server Error: " + (data.error || res.statusText));
+                }
+            } catch (e) {
+                alert("Network Error: " + e.message);
+            }
+        }
+
+        // Expose to window for inline HTML access safety
+        window.deleteList = deleteList;
+
+        function copyLink(id) {
+            const url = `${window.location.origin}/${id}`;
+
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(url).then(() => alert("Link copied!"))
+                    .catch(() => fallbackCopy(url));
+            } else {
+                fallbackCopy(url);
+            }
+        }
+
+        function fallbackCopy(text) {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            textArea.style.position = "fixed";
+            textArea.style.left = "-9999px";
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+
+            try {
+                document.execCommand('copy');
+                alert("Link copied!");
+            } catch (err) {
+                prompt("Copy this link:", text);
+            }
+
+            document.body.removeChild(textArea);
+        }
+
+        async function logout() {
+            await fetch('/api/logout', { method: 'POST' });
+            window.location.href = '/login';
+        }
+
+        loadLists();
+    </script>
+</body>
