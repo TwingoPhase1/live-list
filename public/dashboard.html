@@ -56,6 +56,8 @@
                     const date = new Date(list.mtime).toLocaleDateString();
                     const card = document.createElement('div');
                     card.className = 'list-card';
+                    // Make entire card clickable
+                    card.onclick = () => openList(list.id);
 
                     // Display Logic: Show Admin Title if exists, else Public Title
                     const hasAdminTitle = !!list.adminTitle;
@@ -67,28 +69,30 @@
                     const lockTitle = isPublic ? 'Public (Click to Lock)' : 'Private (Click to Share)';
                     const lockClass = isPublic ? 'btn-icon' : 'btn-icon btn-private';
 
-                    // SIMPLE, ROBUST INLINE EVENTS
-                    // 1. Remove wrapper click
-                    // card.setAttribute('onclick', `openList('${list.id}')`); <-- REMOVED
-
                     card.innerHTML = `
-                        <!-- Content Clickable ONLY -->
-                        <div class="card-content" onclick="openList('${list.id}')">
+                        <!-- Content: Pure Display (Events handled by parent) -->
+                        <div class="card-content">
                             <div class="card-header-row" style="display:flex; justify-content:space-between; align-items:center;">
                                 <h3>${mainTitle}</h3>
-                                <!-- Edit Admin Title Button -->
-                                <button class="btn-icon-small" onclick="event.stopPropagation(); editAdminTitle('${list.id}', '${list.adminTitle || ''}')" title="Rename (Admin Only)">✏️</button>
                             </div>
                             ${subTitle ? `<p class="meta-subtitle" style="font-size:0.8rem; opacity:0.7;">${subTitle}</p>` : ''}
                             <p class="meta">Modified: ${date}</p>
                             <p class="meta">Size: ${(list.size / 1024).toFixed(1)} KB</p>
                         </div>
-                        <!-- Actions Separated (Sibling) -->
+                        
+                        <!-- Actions Separated -->
                         <div class="card-actions" onmousedown="event.stopPropagation()" onclick="event.stopPropagation()">
-                             <!-- Buttons STOP propagation explicitly -->
-                            <button class="${lockClass}" onmousedown="event.stopPropagation(); toggleShare('${list.id}', ${isPublic}, event)" title="${lockTitle}">${lockIcon}</button>
-                            <button class="btn-icon" onmousedown="event.stopPropagation(); copyLink('${list.id}')" title="Copy Link">🔗</button>
-                            <button class="btn-icon btn-delete" onclick="event.stopPropagation(); deleteList('${list.id}')" title="Delete List">🗑️</button>
+                             <!-- 1. Edit Admin Title (Moved Here) -->
+                             <button class="btn-icon" onclick="editAdminTitle('${list.id}', '${list.adminTitle || ''}')" title="Rename (Admin Only)">✏️</button>
+                             
+                             <!-- 2. Public/Private Toggle -->
+                            <button class="${lockClass}" onclick="toggleShare('${list.id}', ${isPublic}, event)" title="${lockTitle}">${lockIcon}</button>
+                            
+                            <!-- 3. Copy Link -->
+                            <button class="btn-icon" onclick="copyLink('${list.id}')" title="Copy Link">🔗</button>
+                            
+                            <!-- 4. Delete -->
+                            <button class="btn-icon btn-delete" onclick="deleteList('${list.id}')" title="Delete List">🗑️</button>
                         </div>
                     `;
                     // Delete List

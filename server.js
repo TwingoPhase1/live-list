@@ -250,14 +250,19 @@ io.on('connection', (socket) => {
         socket.join(roomId);
 
         // Include public status in init
-        // SECURITY: Do NOT send adminTitle here unless we specifically want to (usually we don't need it in the list view)
-        // If we did, we'd need to check isAdmin again.
-        socket.emit('init', {
+        // SECURITY: Only send adminTitle if user IS admin
+        const initData = {
             content: listData.content,
             lastModified: listData.lastModified,
             title: listData.title || '',
             public: isPublic
-        });
+        };
+
+        if (isAdmin) {
+            initData.adminTitle = listData.adminTitle || '';
+        }
+
+        socket.emit('init', initData);
 
         const count = getRoomCount(roomId);
         io.to(roomId).emit('userCount', count);
@@ -289,6 +294,34 @@ io.on('connection', (socket) => {
 
         // Update Index
         updateIndex(roomId, { title: title, lastModified: listData.lastModified });
+
+        // Schedule Save
+        scheduleWrite(roomId, listData);
+    });
+
+    socket.on('updateAdminTitle', ({ roomId, adminTitle }) => {
+        // Security Check
+        let listData = getListData(roomId);
+        if (!listData) return;
+
+        // AUTH CHECK: STRICTLY ADMIN ONLY
+        const session = socket.request.session;
+        const isAdmin = session && session.user;
+
+        if (!isAdmin) {
+            console.log(`[WRITE DENIED] Non-admin tried to update Admin Title of ${roomId}`);
+            return;
+        }
+
+        // We do NOT broadcast this to the room because it's private.
+        // But we might want to ack back to the sender? 
+        // For now, client assumes success or we could emit specific ack.
+
+        listData.adminTitle = adminTitle;
+        // Don't change lastModified for this? Or yes? Maybe internal change.
+
+        // Update Index
+        updateIndex(roomId, { adminTitle: adminTitle });
 
         // Schedule Save
         scheduleWrite(roomId, listData);

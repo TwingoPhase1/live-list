@@ -70,6 +70,18 @@ if (titleInput) {
     });
 }
 
+// Admin Title Logic
+const adminTitleInput = document.getElementById('adminTitleInput');
+const adminTitleContainer = document.getElementById('admin-title-container');
+
+if (adminTitleInput) {
+    adminTitleInput.addEventListener('change', () => { // Use change for less spam, or input for realtime
+        const adminTitle = adminTitleInput.value;
+        // console.log("Updating Admin Title:", adminTitle);
+        socket.emit('updateAdminTitle', { roomId, adminTitle });
+    });
+}
+
 // ...
 
 socket.on('init', (data) => {
@@ -80,6 +92,12 @@ socket.on('init', (data) => {
     if (data.title) {
         titleInput.value = data.title;
         document.title = data.title;
+    }
+
+    // Admin Title (Only present if Admin)
+    if (typeof data.adminTitle !== 'undefined') {
+        if (adminTitleContainer) adminTitleContainer.style.display = 'block';
+        if (adminTitleInput) adminTitleInput.value = data.adminTitle;
     }
 
     // Update Share Button State
