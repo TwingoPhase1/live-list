@@ -208,6 +208,10 @@ const getYDoc = (docname, gc = true) => {
             doc.conns.forEach((_, conn) => send(conn, message));
             if (doc.loaded) scheduleYSave(docname, doc);
         });
+        // Prevent crash on unhandled error
+        doc.on('error', (err) => {
+            console.error(`[YJS ERROR] ${docname}:`, err);
+        });
         loadDoc(docname).then(update => {
             if (update) Y.applyUpdate(doc, update);
             doc.loaded = true;
@@ -216,7 +220,8 @@ const getYDoc = (docname, gc = true) => {
             const changedClients = added.concat(updated).concat(removed);
             const encoder = encoding.createEncoder();
             encoding.writeVarUint(encoder, 1);
-            awarenessProtocol.writeAwarenessUpdate(encoder, doc.awareness, changedClients);
+            const update = awarenessProtocol.encodeAwarenessUpdate(doc.awareness, changedClients);
+            encoding.writeVarUint8Array(encoder, update);
             const buff = encoding.toUint8Array(encoder);
             doc.conns.forEach((_, conn) => send(conn, buff));
         });
@@ -273,15 +278,30 @@ const bcrypt = require('bcryptjs');
 app.use(express.json());
 app.use(express.static('public'));
 app.use(cookieParser());
+const FileStore = require('session-file-store')(session);
+
+app.set('trust proxy', 1); // Trust first proxy (Cloudflare)
+
 const sessionMiddleware = session({
+    store: new FileStore({
+        path: './sessions',
+        ttl: 86400, // 1 day
+        retries: 0
+    }),
     secret: process.env.SESSION_SECRET || 'change-me-in-production',
     resave: false,
-    saveUninitialized: true,
+    saveUninitialized: false, // Don't save empty sessions
     cookie: {
-        secure: process.env.NODE_ENV === 'production',
-        maxAge: 24 * 60 * 60 * 1000
+        secure: process.env.NODE_ENV === 'production', // Auto-enable in Prod only
+        httpOnly: true,
+        maxAge: 24 * 60 * 60 * 1000,
+        sameSite: 'lax' // CSRF protection, compatible with most flows
     }
 });
+
+if (!process.env.SESSION_SECRET) {
+    console.warn("⚠️  WARNING: Using default SESSION_SECRET. Set SESSION_SECRET env variable in production.");
+}
 
 app.use(sessionMiddleware);
 
@@ -312,6 +332,36 @@ app.post('/api/lists/toggle', isAuthenticated, async (req, res) => {
     // TODO: Implement via Yjs awareness if needed
 
     res.json({ success: true, public: isPublic });
+});
+
+// API: Rename List (Public - Everyone can rename)
+app.post('/api/lists/rename', async (req, res) => {
+    const { id, title } = req.body;
+    let listData = getListData(id);
+
+    if (!listData) return res.status(404).json({ error: "List not found" });
+
+    // "Everyone can modify the title" - User Request
+    // Logic: Public lists = Open to everyone. Private lists = Admin only.
+
+    // Check if list is private
+    const isPublic = listData.public !== false; // Default check, though schema implies explicit boolean
+
+    // If Private AND Not Authenticated -> Deny
+    if (!isPublic && !req.session.user) {
+        return res.status(403).json({ error: "Access Denied" });
+    }
+
+    listData.title = title;
+    listData.lastModified = Date.now();
+
+    // Save
+    await saveToDisk(id, listData);
+
+    // Update Index
+    updateIndex(id, { title: title, lastModified: listData.lastModified });
+
+    res.json({ success: true, title });
 });
 
 // API: Rename Admin Title (Private)
@@ -491,10 +541,17 @@ app.post('/api/lists/create', isAuthenticated, async (req, res) => {
     }
 });
 
-app.get('/api/lists/:id/history', isAuthenticated, async (req, res) => {
+app.get('/api/lists/:id/history', async (req, res) => {
     const listId = req.params.id;
-    // Security check: Only admins can view history
-    if (!req.session.user) {
+    const listData = getListData(listId);
+
+    if (!listData) return res.status(404).json({ error: "List not found" });
+
+    // Allow if Admin OR Public
+    const isAdmin = req.session && req.session.user;
+    const isPublic = listData.public !== false;
+
+    if (!isAdmin && !isPublic) {
         return res.status(403).json({ error: "Access Denied" });
     }
 
@@ -549,13 +606,6 @@ app.get('/dashboard', (req, res) => {
 
 // Serve list.html for any other route (Dynamic List ID)
 // MUST BE LAST ROUTE to avoid intercepting /login, /api, etc.
-// Serve list.html for any other route (Dynamic List ID)
-// MUST BE LAST ROUTE to avoid intercepting /login, /api, etc.
-
-
-
-// Serve list.html for any other route (Dynamic List ID)
-// MUST BE LAST ROUTE to avoid intercepting /login, /api, etc.
 app.get('/:id', (req, res) => {
     if (req.params.id === 'favicon.ico') return res.status(404).end();
 
@@ -604,8 +654,21 @@ app.get('/:id', (req, res) => {
     <meta property="og:site_name" content="Live-List">
                 `;
 
+                // Securely Serialize Data (Prevent </script> injection)
+                const safeJson = (data) => JSON.stringify(data).replace(/</g, '\\u003c');
+
                 // Insert before </head>
-                modifiedHtml = modifiedHtml.replace('</head>', `${ogTags}</head>`);
+                const scriptData = `
+                <script>
+                    window.listData = {
+                        public: ${isPublic},
+                        title: ${safeJson(listData.title || "")},
+                        adminTitle: ${safeJson(listData.adminTitle || null)},
+                        isAdmin: ${!!isAdmin}
+                    };
+                </script>
+                `;
+                modifiedHtml = modifiedHtml.replace('</head>', `${ogTags}${scriptData}</head>`);
 
                 res.send(modifiedHtml);
             });

@@ -9,10 +9,12 @@
 
 - **Real-Time Sync**: Instant updates across all connected devices using generic WebSocket protocol.
 - **Conflict-Free (CRDT)**: Built on [Y.js](https://github.com/yjs/yjs) to handle concurrent edits without data loss or cursor jumping.
+- **Audio Gamification**: Satisfying sound effects for interactions (pop, snap, ding) to enhance user engagement.
 - **Privacy-First**: 
   - Lists are **private by default**.
   - **Admin Mode**: Claim ownership of a list to manage permissions.
   - **Public/Private Toggle**: Share strictly when you want to.
+  - *Note: List titles can be renamed by anyone with access to foster collaboration.*
 - **Persistent Storage**: Changes are autosaved to disk (binary `.yjs` format) and synced efficiently.
 - **Responsive UI**: Mobile-optimized interface with PWA support (Manifest included).
 

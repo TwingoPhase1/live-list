@@ -385,7 +385,6 @@ body {
 }
 
 /* Minimal Card */
-/* Minimal Card */
 .list-card {
     background: var(--card-bg);
     border-radius: 20px;
@@ -567,7 +566,6 @@ body {
     padding: 0;
 }
 
-/* Quantity Badge Styles */
 /* Quantity Badge Styles - Stacked Arrows */
 .qty-badge {
     display: inline-flex !important;
@@ -658,13 +656,16 @@ body {
     margin-right: 4px;
 }
 
-/* Placeholder logic for div */
-#editor[contenteditable]:empty::before {
-    content: attr(placeholder);
-    color: var(--status-color);
+/* Quill Placeholder logic */
+.ql-editor.ql-blank::before {
+    color: var(--secondary-text) !important;
     opacity: 0.6;
-    display: block;
-    /* For some browsers */
+    font-style: normal;
+    left: 0 !important;
+    right: 0;
+    pointer-events: none;
+    line-height: 1.6;
+    /* Match editor line-height */
 }
 
 @media (max-width: 640px) {
@@ -678,11 +679,53 @@ body {
         top: auto;
         right: auto;
         width: 100%;
-        justify-content: flex-end;
+        justify-content: center;
+        /* CENTERED as requested */
+        flex-direction: column;
+        /* Stack items */
+        align-items: center;
+        /* Center align items */
         pointer-events: auto;
-        margin-bottom: 0.5rem;
-        padding: 0 0.5rem;
+        margin-bottom: 1rem;
+        padding: 0;
+        gap: 0.5rem;
     }
+
+    /* Full width buttons for mobile */
+    .status-bar .nav-return,
+    .status-bar .nav-admin,
+    .status-bar .nav-share,
+    .status-bar .nav-history,
+    .status-bar .presence,
+    .status-bar .status {
+        width: 100%;
+        /* Full Width */
+        display: flex;
+        justify-content: center;
+        /* Center Text/Icon */
+        text-align: center;
+        margin: 0;
+        /* Reset margins */
+        box-sizing: border-box;
+    }
+
+    /* Specific tweaks for visual hierarchy */
+    .status-bar .presence {
+        order: -1;
+        margin-bottom: 5px;
+        width: auto;
+        /* Keep presence bubble small or full? Let's keep it auto for aesthetics, or full if requested? "admin plus le compteur et la date" -> User wants admin buttons+counter+date centered and full width. */
+        width: 100%;
+        border-radius: 8px;
+        /* Less rounded for full width bar look */
+    }
+
+    .status-bar .status {
+        width: 100%;
+        text-align: center;
+        padding: 5px;
+    }
+
 
     /* Reduce title size */
     .list-title-input {
@@ -695,7 +738,7 @@ body {
     }
 
     #editor {
-        padding: 1.5rem;
+        padding: 0.75rem;
         font-size: 1rem;
         border-radius: 16px;
     }

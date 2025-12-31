@@ -8,7 +8,7 @@
     <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#09090b">
     <link rel="manifest" href="/manifest.json">
     <link rel="apple-touch-icon" href="/icon.png">
-    <link rel="icon" type="image/png" href="/favicon.png">
+    <link rel="icon" type="image/png" href="/icon.png">
     <title>Live-List Dashboard</title>
     <link rel="stylesheet" href="style.css?v=9999">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -223,6 +223,10 @@
         }
 
         loadLists();
+
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js').catch(console.error);
+        }
     </script>
-    <div class="version-tag">version : v1</div>
+    <div class="version-tag">version : 2.0</div>
 </body>

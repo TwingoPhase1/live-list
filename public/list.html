@@ -8,6 +8,8 @@
     <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#09090b">
     <title>Live-List</title>
     <link rel="stylesheet" href="/style.css">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" type="image/png" href="/icon.png">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
         /* Yjs Cursor Styling */
@@ -39,7 +41,11 @@
 
 <body>
     <div class="status-bar">
-        <a href="/" class="nav-return" title="Back to Dashboard">← Dashboard</a>
+        <a href="/" class="nav-return" title="Back to Dashboard" style="display:none;">← Dashboard</a>
+        <!-- Restored Buttons -->
+        <button id="btn-share" class="nav-share" style="display:none;">...</button>
+        <button id="btn-history" class="nav-history" style="display:none;" title="View History">📜 History</button>
+        <button id="btn-admin-title" class="nav-admin" style="display:none;" title="Set Admin Title">🏷️</button>
         <span id="presence" class="presence hidden">🟢 1 online</span>
         <div id="status" class="status"></div>
     </div>
@@ -58,8 +64,21 @@
         <div id="editor" contenteditable="true" spellcheck="false" placeholder="Start typing your list here..."></div>
     </div>
 
+    <!-- History Modal -->
+    <div id="history-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>History</h3>
+                <button id="close-history" class="close-btn">×</button>
+            </div>
+            <div id="history-list" class="history-list">
+                <!-- History items will be injected here -->
+            </div>
+        </div>
+    </div>
+
     <!-- ES Module for Yjs (Main V2 Logic) -->
-    <script type="module" src="/main.js"></script>
+    <script type="module" src="/main.js?v=polish9-httpsfix"></script>
 </body>
 
 </html>
